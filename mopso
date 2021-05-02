@@ -1,0 +1,111 @@
+import numpy as np 
+import pandas as pd 
+import random 
+
+def pareto_optimal(input_vec, opt_vec_set, function):        
+    dom_ind = 1
+    #if this is not dominated then add to opt set 
+    for vec in opt_vec_set:
+        if function(input_vec) > function(vec):
+            dom_ind = 0
+    if dom_ind != 1:
+        opt_vec_set.append(input_vec)
+        #if added check if the others are still optimal 
+        for vec in opt_vec_set:
+            if function(input_vec) > function(vec):
+                opt_vec_set.remove(vec)
+    return opt_vec_set
+
+class mopso():
+    def __init__(self, num_particles, dim_n, p_mod, g_mod, inertia_weight, function_set, ending_condition, max_iterations):
+        self.num_particles = num_particles
+        self.particle_set = []
+        self.dim_n = dim_n
+        self.p_mod = p_mod 
+        self.g_mod = g_mod
+        self.inertia_weight = inertia_weight
+        
+        self.function_set = function_set
+        self.ending_condition = ending_condition
+        self.max_iteration = max_iterations
+        
+        self.iteration_no = 0
+        self.iter_g_best = []
+        self.total_g_best = []
+        self.total_g_best_ind = []
+        
+    def setup(self):
+        for i in range(0,self.num_particles):
+            p = particle('particle_'+str(i), self.dim_n, self.p_mod, self.g_mod, self.inertia_weight, 1, self.function_set)
+            p.initialise()
+            self.particle_set.append(p)
+        self.total_g_best.append(np.random.uniform(0,0.01,self.dim_n))
+        self.iter_g_best = self.total_g_best
+            
+    def step(self):
+        self.iter_g_best = self.total_g_best
+        for p in self.particle_set:
+            self.iter_g_best = p.update_state(self.iter_g_best)
+            
+        #update the total_g_best
+        self.total_g_best = self.iter_g_best
+        
+        #check if the ending codition met 
+        ending_test = self.ending_condition(self.total_g_best)
+        if ending_test:
+            self.iteration_no = self.max_iteration
+        
+        self.iteration_no += 1
+
+    def run_mopso(self):
+        self.setup()   
+        while self.iteration_no <= self.max_iteration:
+            self.step()
+        for x in self.total_g_best:
+            print(self.function_set)
+
+class particle():    
+    def __init__(self, name, dim_n, p_mod, g_mod, inertia_weight, t_step, function_set):    
+        self.function_set = function_set
+        
+        self.name = name 
+        self.dim_n = dim_n
+        self.p_best_set = []
+        
+        self.pos = None
+        self.vel = None
+        self.t_step = t_step
+        
+        self.inertia_weight = inertia_weight
+        self.p_mod = p_mod
+        self.g_mod = g_mod
+        
+    def initialise(self):
+        self.pos = np.random.uniform(0,1,self.dim_n)
+        self.vel = np.random.uniform(0,0.05,self.dim_n)
+        #initialise small best 
+        self.p_best_set.append(np.random.uniform(0,0.05,self.dim_n))
+        
+    def update_state(self, g_best_set):
+        p_rand_mod = random.uniform(0.01,1)
+        g_rand_mod = random.uniform(0.01,1) 
+        
+        #randomly select from the pareto optimal set
+        p_rand_index = random.randint(0,len(self.p_best_set)-1)
+        p_best = self.p_best_set[p_rand_index]
+
+        g_rand_index = random.randint(0,len(g_best_set)-1)
+        g_best = g_best_set[g_rand_index]
+        
+        #update vel 
+        self.vel = self.inertia_weight*self.vel + p_rand_mod*self.p_mod*(p_best - self.pos) + g_rand_mod*self.g_mod*(g_best - self.pos) 
+        #update pos 
+        self.pos += self.vel*self.t_step
+        
+        #get the function value at the new pos
+        #update pareto set 
+        for function in self.function_set:
+            self.p_best_set = pareto_optimal(self.pos, self.p_best_set, function)
+            g_best_set = pareto_optimal(self.pos, g_best_set, function)
+        return g_best_set
+    
