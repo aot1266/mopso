@@ -2,18 +2,26 @@ import numpy as np
 import pandas as pd 
 import random 
 
-def pareto_optimal(input_vec, opt_vec_set, function):        
+#mospo algorithm   
+def pareto_optimal(input_vec, opt_vec_set, function):   
+    if opt_vec_set == []:
+        opt_vec_set.append(input_vec)
     dom_ind = 1
     #if this is not dominated then add to opt set 
     for vec in opt_vec_set:
         if function(input_vec) > function(vec):
             dom_ind = 0
-    if dom_ind != 1:
+        elif function(input_vec) < function(vec):
+            dom_ind = -1
+    if dom_ind == 0:
         opt_vec_set.append(input_vec)
         #if added check if the others are still optimal 
         for vec in opt_vec_set:
             if function(input_vec) > function(vec):
                 opt_vec_set.remove(vec)
+    if dom_ind == 1:
+        if vec not in opt_vec_set:
+            opt_vec_set.append(vec)
     return opt_vec_set
 
 class mopso():
